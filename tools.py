@@ -35,34 +35,46 @@ def init_paths():
 
 
 class ImageQueue:
-    def __init__(self, paths):
-        self.paths = paths
-        self.queue = []
-        self.enqueue_thread = None
+    def __init__(self, paths, min_queue_examples=5):
+        self.__paths = paths
+        self.__queue = []
+        self.__min_queue_examples = min_queue_examples
+        self.__enqueue_thread = threading.Thread(target=self.__auto_enqueue)
+        self.__enqueue_thread.start()
 
-    def input_producer(self):
-        '''This function takes in an array of paths to files and produces an example.'''
-        path = random.sample(self.paths, 1)[0]
+    def __auto_enqueue(self):
+        while len(self.__queue) < self.__min_queue_examples:
+            self.__enqueue_example()
+        # print('Enqueued examples. Current size:', len(self.__queue))
+
+    def __input_producer(self):
+        path = random.sample(self.__paths, 1)[0]
         img = plt.imread(path)
-        self.queue.append([img, path.split('/')[-2]])
+        self.__queue.append([img, path.split('/')[-2]])
 
-    def enqueue_example(self):
-        self.enqueue_thread = threading.Thread(target=self.input_producer)
-        self.enqueue_thread.start()
+    def __enqueue_example(self):
+        self.__input_producer()
 
     def dequeue_example(self, size=1, consume=True):
-        if self.enqueue_thread:
-            self.enqueue_thread.join()
+        if self.__enqueue_thread:
+            self.__enqueue_thread.join()
         if consume:
-            batch = self.queue[0:size]
-            del self.queue[0:size]
+            batch = self.__queue[0:size]
+            del self.__queue[0:size]
+            # maybe append new elements after they've been deleted
+            # print(f"Dequeueing {size} examples")
+            # print(f"Current size: {len(self.__queue)}")
+            self.__enqueue_thread = threading.Thread(target=self.__auto_enqueue)
+            self.__enqueue_thread.start()
             return batch
         else:
-            return self.queue[0:size]
+            return self.__queue[0:size]
 
 
-# train_paths, valid_paths = init_paths()
-# image_queue = ImageQueue(train_paths)
+train_paths, valid_paths = init_paths()
+image_queue = ImageQueue(train_paths)
+# print('Waiting, then dequeueing one example')
+image_queue.dequeue_example()
 # for i in range(3):
 #     image_queue.enqueue_example()
 #
