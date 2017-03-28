@@ -1,3 +1,4 @@
+import threading
 import os
 from PIL import Image
 import numpy as np
@@ -33,8 +34,41 @@ def init_paths():
     return train_paths, valid_paths
 
 
-def input_producer(train_paths):
-    pass
+class ImageQueue:
+    def __init__(self, paths):
+        self.paths = paths
+        self.queue = []
+        self.enqueue_thread = None
+
+    def input_producer(self):
+        '''This function takes in an array of paths to files and produces an example.'''
+        path = random.sample(self.paths, 1)[0]
+        img = plt.imread(path)
+        self.queue.append([img, path.split('/')[-2]])
+
+    def enqueue_example(self):
+        self.enqueue_thread = threading.Thread(target=self.input_producer)
+        self.enqueue_thread.start()
+
+    def dequeue_example(self, size=1, consume=True):
+        if self.enqueue_thread:
+            self.enqueue_thread.join()
+        if consume:
+            batch = self.queue[0:size]
+            del self.queue[0:size]
+            return batch
+        else:
+            return self.queue[0:size]
 
 
-train_paths, valid_paths = init_paths()
+# train_paths, valid_paths = init_paths()
+# image_queue = ImageQueue(train_paths)
+# for i in range(3):
+#     image_queue.enqueue_example()
+#
+# for i in range(3):
+#     print(image_queue.dequeue_example())
+# input_producer(train_paths)
+# img, label = input_producer(train_paths)
+# plt.imshow(img)
+# plt.show()
