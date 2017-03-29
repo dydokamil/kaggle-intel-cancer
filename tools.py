@@ -45,7 +45,7 @@ class ImageQueue:
     def __auto_enqueue(self):
         while len(self.__queue) < self.__min_queue_examples:
             self.__enqueue_example()
-        # print('Enqueued examples. Current size:', len(self.__queue))
+            # print('Enqueued examples. Current size:', len(self.__queue))
 
     def __input_producer(self):
         path = random.sample(self.__paths, 1)[0]
@@ -56,11 +56,20 @@ class ImageQueue:
         self.__input_producer()
 
     def dequeue_example(self, size=1, consume=True):
+        if size > self.__min_queue_examples:
+            raise Exception("Requested amount of examples is greater than min_queue_example.")
+
         if self.__enqueue_thread:
             self.__enqueue_thread.join()
+
+        if size > len(self.__queue):
+            raise Exception("Requested amount of examples is greater than the size of the queue.")
+
         if consume:
-            batch = self.__queue[0:size]
-            del self.__queue[0:size]
+            #TODO if queue_size == size then return queue
+            batch = []
+            for i in range(size):
+                batch.append(self.__queue.pop())
             # maybe append new elements after they've been deleted
             # print(f"Dequeueing {size} examples")
             # print(f"Current size: {len(self.__queue)}")
