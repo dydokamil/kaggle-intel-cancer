@@ -11,14 +11,7 @@ dirs = ['Type_1', 'Type_2', 'Type_3']
 TRAIN_PATH = os.path.join(DATA_PATH, 'train')
 TEST_PATH = os.path.join(DATA_PATH, 'test')
 VALID_PATH = os.path.join(DATA_PATH, 'valid')
-
-
-def sample_image():
-    sample_dir = random.sample(dirs, 1)[0]
-    sample = random.sample(os.listdir(os.path.join(TRAIN_PATH, sample_dir)), 1)[0]
-    sample = os.path.join(TRAIN_PATH, sample_dir, sample)
-    img = plt.imread(sample)
-    return img
+SHORTER_AXIS = 227
 
 
 def init_paths():
@@ -34,18 +27,28 @@ def init_paths():
     return train_paths, valid_paths
 
 
+def display_img(img):
+    plt.imshow(img)
+    plt.show()
+
+
 class ImageQueue:
-    def __init__(self, paths, min_queue_examples=5):
+    '''This class implements a threaded image queue.'''
+
+    def __init__(self, paths, min_queue_examples=5, normalize=True):
         self.__paths = paths
+        self.__normalize = normalize
         self.__queue = []
         self.__min_queue_examples = min_queue_examples
         self.__enqueue_thread = threading.Thread(target=self.__auto_enqueue)
         self.__enqueue_thread.start()
+        print("Filling up the queue...")
 
     def __auto_enqueue(self):
+        # print("Filling up the queue...")
         while len(self.__queue) < self.__min_queue_examples:
             self.__enqueue_example()
-            # print('Enqueued examples. Current size:', len(self.__queue))
+            # print('Filled up the queue. Current size:', len(self.__queue))
 
     def __input_producer(self):
         path = random.sample(self.__paths, 1)[0]
@@ -66,7 +69,7 @@ class ImageQueue:
             raise Exception("Requested amount of examples is greater than the size of the queue.")
 
         if consume:
-            #TODO if queue_size == size then return queue
+            # TODO if queue_size == size then return queue
             batch = []
             for i in range(size):
                 batch.append(self.__queue.pop())
@@ -80,16 +83,14 @@ class ImageQueue:
             return self.__queue[0:size]
 
 
-train_paths, valid_paths = init_paths()
-image_queue = ImageQueue(train_paths)
-# print('Waiting, then dequeueing one example')
-image_queue.dequeue_example()
-# for i in range(3):
-#     image_queue.enqueue_example()
-#
-# for i in range(3):
-#     print(image_queue.dequeue_example())
-# input_producer(train_paths)
-# img, label = input_producer(train_paths)
-# plt.imshow(img)
-# plt.show()
+def resize_img(img):
+    img = Image.fromarray(img)
+    multiplier = 1
+    if img.size[0] > img.size[1]:  # width > height
+        multiplier = img.size[1] / SHORTER_AXIS
+    elif img.size[1] > img.size[0]:  # height > width
+        multiplier = img.size[0] / SHORTER_AXIS
+    new_size = (round(img.size[0] / multiplier), round(img.size[1] / multiplier))
+    img.thumbnail(new_size)
+    # print(new_size)
+    return img
