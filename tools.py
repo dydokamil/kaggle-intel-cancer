@@ -7,18 +7,10 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 RAW_DATA_PATH = r"/media/hdd/training_data/intel-cancer/Screening"
-# dirs = ['Type_1', 'Type_2', 'Type_3']
-# RAW_TRAIN_PATH = os.path.join(RAW_DATA_PATH, 'train')
-# RAW_TEST_PATH = os.path.join(RAW_DATA_PATH, 'test')
-# RAW_VALID_PATH = os.path.join(RAW_DATA_PATH, 'valid')
 SHORTER_AXIS = 227
 
 PROCESSED_DATA_PATH = '/home/kamil/training_data/intel-cancer/resized'
 
-
-# PROCESSED_TRAIN_PATH = os.path.join(PROCESSED_DATA_PATH, 'train')
-# PROCESSED_TEST_PATH = os.path.join(PROCESSED_DATA_PATH, 'test')
-# PROCESSED_VALID_PATH = os.path.join(PROCESSED_DATA_PATH, 'valid')
 
 def init_paths(main_path):
     train_paths = []
@@ -40,7 +32,6 @@ def init_paths(main_path):
 def display_img(img):
     plt.imshow(img)
     plt.show()
-    plt.draw()
 
 
 class ImageQueue:
@@ -56,10 +47,8 @@ class ImageQueue:
         print("Filling up the queue...")
 
     def __auto_enqueue(self):
-        # print("Filling up the queue...")
         while len(self.__queue) < self.__min_queue_examples:
             self.__enqueue_example()
-            # print('Filled up the queue. Current size:', len(self.__queue))
 
     def __input_producer(self):
         path = random.sample(self.__paths, 1)[0]
@@ -84,9 +73,6 @@ class ImageQueue:
             batch = []
             for i in range(size):
                 batch.append(self.__queue.pop())
-            # maybe append new elements after they've been deleted
-            # print(f"Dequeueing {size} examples")
-            # print(f"Current size: {len(self.__queue)}")
             self.__enqueue_thread = threading.Thread(target=self.__auto_enqueue)
             self.__enqueue_thread.start()
             return batch
@@ -97,13 +83,12 @@ class ImageQueue:
 def resize_img(img):
     img = Image.fromarray(img)
     multiplier = 1
-    if img.size[0] > img.size[1]:  # width > height
+    if img.size[0] > img.size[1]:
         multiplier = img.size[1] / SHORTER_AXIS
-    elif img.size[1] > img.size[0]:  # height > width
+    elif img.size[1] > img.size[0]:
         multiplier = img.size[0] / SHORTER_AXIS
     new_size = (round(img.size[0] / multiplier), round(img.size[1] / multiplier))
     img.thumbnail(new_size)
-    # print(new_size)
     return img
 
 
@@ -112,9 +97,17 @@ def load_images(paths, test_dataset=False, small_dataset=False):
     images, labels = [], []
     for path in paths:
         try:
-            images.append(plt.imread(path))
+            img = plt.imread(path)
+            img = img.astype(np.float32)
+            images.append(img)
             if not test_dataset:
-                labels.append(path.split('/')[-2])
+                string_label = path.split('/')[-2]
+                if string_label == "Type_1":
+                    labels.append([0, 0, 1])
+                elif string_label == "Type_2":
+                    labels.append([0, 1, 0])
+                elif string_label == "Type_3":
+                    labels.append([1, 0, 0])
             i = i + 1
         except Exception as e:
             print(e)
@@ -123,11 +116,10 @@ def load_images(paths, test_dataset=False, small_dataset=False):
     if test_dataset:
         return images
     else:
-        return images, labels
+        return np.asarray(images), np.asarray(labels)
 
 
 def rotate_image(img, angle):
-    # return tf.contrib.image.rotate(img, angle)
     img = Image.fromarray(img)
     return img.rotate(random.randint(0, angle))
 
@@ -141,4 +133,34 @@ def distort_image(img):
     img = tf.image.random_flip_up_down(img)
     img = tf.image.random_flip_left_right(img)
     img = tf.image.rot90(img, random.randint(0, 3))
+    img = tf.divide(img, 255.)
     return img
+
+
+def next_batch(batch_size, images, labels):
+    indices = random.sample(range(len(images)), batch_size)
+    raw_images = images[indices]
+    distorted_images = [distort_image(image) for image in raw_images]
+    return distorted_images, labels[indices]
+
+
+def resize_all(queue, output_path, labels=True):
+    for image_path in queue:
+        name = image_path.split('/')[-1]
+        if labels:
+            cancer_type = image_path.split('/')[-2]
+        try:
+            image = plt.imread(image_path)
+            resized = resize_img(image)
+            if labels:
+                train_or_valid = image_path.split('/')[-3]
+                resized.save(os.path.join(output_path, train_or_valid, cancer_type, name))
+            else:
+                resized.save(os.path.join(output_path, 'test', name))
+        except Exception as e:
+            print(f'Wonky image: {image_path}; Skipping...')
+            continue
+
+
+def get_model():
+    x = tf.placeholder(tf.float32, shape=[None, None])
