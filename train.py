@@ -14,7 +14,7 @@ if __name__ == '__main__':
     with tf.Session() as sess:
         tf.global_variables_initializer().run()
         for i in range(NUM_EPOCHS):
-            # X_train_batch_op, y_train_batch = next_batch(10, X_train, y_train)
-            # images = sess.run(X_train_batch_op)
-            # print(images)
+            X_train_batch_op, y_train_batch = next_batch(10, X_train, y_train)
+            images = sess.run(X_train_batch_op)
+            print(images)
             pass

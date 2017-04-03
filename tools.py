@@ -134,6 +134,8 @@ def distort_image(img):
     img = tf.image.random_flip_left_right(img)
     img = tf.image.rot90(img, random.randint(0, 3))
     img = tf.divide(img, 255.)
+    # if ravel:
+    #     img = tf.reshape(img, shape=[-1])
     return img
 
 
@@ -141,6 +143,8 @@ def next_batch(batch_size, images, labels):
     indices = random.sample(range(len(images)), batch_size)
     raw_images = images[indices]
     distorted_images = [distort_image(image) for image in raw_images]
+    # if ravel:
+    #     distorted_images = tf.reshape(distorted_images, shape=(batch_size, -1))
     return distorted_images, labels[indices]
 
 
@@ -162,5 +166,53 @@ def resize_all(queue, output_path, labels=True):
             continue
 
 
+def weight_variable(shape):
+    initial = tf.truncated_normal(shape, stddev=.1)
+    return tf.Variable(initial)
+
+
+def bias_variable(shape):
+    initial = tf.constant(.1, shape=shape)
+    return tf.Variable(initial)
+
+
 def get_model():
-    x = tf.placeholder(tf.float32, shape=[None, None])
+    x = tf.placeholder(tf.float32, shape=[None, None, None, 3])
+    y_ = tf.placeholder(tf.float32, shape=[None, 3])
+
+    # first convolutional layer
+    W_conv1 = weight_variable([11, 11, 3, 96])
+    b_conv1 = bias_variable([96])
+
+    h_conv1 = tf.nn.relu(tf.nn.conv2d(x, W_conv1, [1, 4, 4, 1], padding='SAME') + b_conv1)
+    h_pool1 = tf.nn.max_pool(h_conv1, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME')
+
+    lrn1 = tf.nn.local_response_normalization(h_pool1)
+
+    # second convolutional layer
+    W_conv2 = weight_variable([5, 5, 96, 256])
+    b_conv2 = bias_variable([256])
+
+    h_conv2 = tf.nn.relu(tf.nn.conv2d(lrn1, W_conv2, [1, 1, 1, 1], padding='SAME') + b_conv2)
+    h_pool2 = tf.nn.max_pool(h_conv2, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME')
+
+    lrn2 = tf.nn.local_response_normalization(h_pool2)
+
+    # third convolutional layer
+    W_conv3 = weight_variable([3, 3, 256, 384])
+    b_conv3 = bias_variable([384])
+    h_conv3 = tf.nn.relu(tf.nn.conv2d(lrn2, W_conv3, [1, 1, 1, 1], padding='SAME') + b_conv3)
+
+    # fourth convolutional layer
+    W_conv4 = weight_variable([3, 3, 384, 384])
+    b_conv4 = bias_variable([384])
+    h_conv4 = tf.nn.relu(tf.nn.conv2d(h_conv3, W_conv4, [1, 1, 1, 1], padding='SAME') + b_conv4)
+
+    # fifth convolutional layer
+    W_conv5 = weight_variable([3, 3, 384, 256])
+    b_conv5 = bias_variable([256])
+    h_conv5 = tf.nn.relu(tf.nn.conv2d(h_conv4, W_conv5, [1, 1, 1, 1], padding='SAME') + b_conv5)
+    h_pool5 = tf.nn.max_pool(h_conv5, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME')
+
+    lrn3 = tf.nn.local_response_normalization(h_pool5)
+    
