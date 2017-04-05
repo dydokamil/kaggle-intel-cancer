@@ -84,7 +84,8 @@ def resize_img(img):
     img = Image.fromarray(img)
     multiplier = 1
     if img.size[0] > img.size[1]:
-        multiplier = img.size[1] / SHORTER_AXIS
+        img = img.rotate(90)
+        # multiplier = img.size[1] / SHORTER_AXIS
     elif img.size[1] > img.size[0]:
         multiplier = img.size[0] / SHORTER_AXIS
     new_size = (round(img.size[0] / multiplier), round(img.size[1] / multiplier))
@@ -111,7 +112,7 @@ def load_images(paths, test_dataset=False, small_dataset=False):
             i = i + 1
         except Exception as e:
             print(e)
-        if i == 50 and small_dataset:
+        if i == 500 and small_dataset:
             break
     if test_dataset:
         return images
@@ -132,7 +133,7 @@ def distort_image(img):
     img = tf.image.random_saturation(img, .9, 1.)
     img = tf.image.random_flip_up_down(img)
     img = tf.image.random_flip_left_right(img)
-    img = tf.image.rot90(img, random.randint(0, 3))
+    # img = tf.image.rot90(img, random.randint(0, 3))
     img = tf.divide(img, 255.)
     # if ravel:
     #     img = tf.reshape(img, shape=[-1])
@@ -164,55 +165,3 @@ def resize_all(queue, output_path, labels=True):
         except Exception as e:
             print(f'Wonky image: {image_path}; Skipping...')
             continue
-
-
-def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev=.1)
-    return tf.Variable(initial)
-
-
-def bias_variable(shape):
-    initial = tf.constant(.1, shape=shape)
-    return tf.Variable(initial)
-
-
-def get_model():
-    x = tf.placeholder(tf.float32, shape=[None, None, None, 3])
-    y_ = tf.placeholder(tf.float32, shape=[None, 3])
-
-    # first convolutional layer
-    W_conv1 = weight_variable([11, 11, 3, 96])
-    b_conv1 = bias_variable([96])
-
-    h_conv1 = tf.nn.relu(tf.nn.conv2d(x, W_conv1, [1, 4, 4, 1], padding='SAME') + b_conv1)
-    h_pool1 = tf.nn.max_pool(h_conv1, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME')
-
-    lrn1 = tf.nn.local_response_normalization(h_pool1)
-
-    # second convolutional layer
-    W_conv2 = weight_variable([5, 5, 96, 256])
-    b_conv2 = bias_variable([256])
-
-    h_conv2 = tf.nn.relu(tf.nn.conv2d(lrn1, W_conv2, [1, 1, 1, 1], padding='SAME') + b_conv2)
-    h_pool2 = tf.nn.max_pool(h_conv2, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME')
-
-    lrn2 = tf.nn.local_response_normalization(h_pool2)
-
-    # third convolutional layer
-    W_conv3 = weight_variable([3, 3, 256, 384])
-    b_conv3 = bias_variable([384])
-    h_conv3 = tf.nn.relu(tf.nn.conv2d(lrn2, W_conv3, [1, 1, 1, 1], padding='SAME') + b_conv3)
-
-    # fourth convolutional layer
-    W_conv4 = weight_variable([3, 3, 384, 384])
-    b_conv4 = bias_variable([384])
-    h_conv4 = tf.nn.relu(tf.nn.conv2d(h_conv3, W_conv4, [1, 1, 1, 1], padding='SAME') + b_conv4)
-
-    # fifth convolutional layer
-    W_conv5 = weight_variable([3, 3, 384, 256])
-    b_conv5 = bias_variable([256])
-    h_conv5 = tf.nn.relu(tf.nn.conv2d(h_conv4, W_conv5, [1, 1, 1, 1], padding='SAME') + b_conv5)
-    h_pool5 = tf.nn.max_pool(h_conv5, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME')
-
-    lrn3 = tf.nn.local_response_normalization(h_pool5)
-    
