@@ -17,7 +17,7 @@ def bias_variable(shape):
 
 
 def get_model():
-    x = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='x')
+    x = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='x')  # TODO change to three dimensions
     y_ = tf.placeholder(tf.float32, shape=[None, 3])
 
     # first convolutional layer
@@ -72,8 +72,12 @@ def get_model():
     return h_conv8, x, y_
 
 
-def last_layer_average(last_layer, shape):
-    avg_pool = tf.nn.avg_pool(last_layer, [1, shape[1], shape[2], 1], [1, 1, 1, 1], padding='VALID')
+def last_layer_average(last_layer):
+    # avg_pool = tf.nn.avg_pool(last_layer, [shape[0], shape[1], shape[2], 1], [1, 1, 1, 1], padding='VALID')
+    # avg_pool = tf.nn.avg_pool(last_layer, shape, [1, 1, 1, 1], padding='VALID')
+    avg_pool = tf.reduce_mean(last_layer, axis=1)
+    avg_pool = tf.reduce_mean(avg_pool, axis=1)
+    # avg_pool = tf.reduce_mean(tf.reduce_mean(last_layer, axis=0), axis=0)
     return avg_pool
 
 
@@ -84,13 +88,19 @@ if __name__ == '__main__':
     train_paths, valid_paths, test_paths = init_paths(PROCESSED_DATA_PATH)
     X_train, y_train = load_images(train_paths, small_dataset=True)
     with tf.Session() as sess:
-        last_layer, x, y = get_model()
+        last_layer_op, x, y = get_model()
         tf.global_variables_initializer().run()
         for i in range(NUM_EPOCHS):
-            X_train_batch_op, y_train_batch = next_batch(10, X_train, y_train)
+            X_train_batch_op, y_train_batch = next_batch(20, X_train, y_train)
             images = sess.run(X_train_batch_op)
-            # print(images[0].shape)
-            result = sess.run(last_layer, feed_dict={x: [images[0]]})
-            # print(result.shape)
-            results = sess.run(last_layer_average(result, result.shape))
-            # print(results)
+            probs_op = conv_images = []
+            probs = []
+            for image in images:
+                probs_op.append(last_layer_average(sess.run(last_layer_op, feed_dict={x: [image]})))
+            for prob_dist in probs_op:
+                probs.append(sess.run(prob_dist))
+
+            # result = sess.run(last_layer, feed_dict={x: images})
+            # results = sess.run(last_layer_average(result, result.shape))
+            for prob in probs:
+                print(prob[0])
