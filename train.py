@@ -1,9 +1,11 @@
+import numpy as np
 import tensorflow as tf
 
 from tools import load_images, init_paths, RAW_DATA_PATH, PROCESSED_DATA_PATH, next_batch, resize_all
 
 RESIZED = True  # switch to False if images are not resized
-NUM_EPOCHS = 1
+NUM_EPOCHS = 5
+BATCH_SIZE = 20
 
 
 def weight_variable(shape):
@@ -17,8 +19,8 @@ def bias_variable(shape):
 
 
 def get_model():
-    x = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='x')  # TODO change to three dimensions
-    y_ = tf.placeholder(tf.float32, shape=[None, 3])
+    x = tf.placeholder(tf.float32, shape=[BATCH_SIZE, None, None, 3], name='x')
+    y_ = tf.placeholder(tf.float32, shape=[BATCH_SIZE, 3])
 
     # first convolutional layer
     W_conv1 = weight_variable([11, 11, 3, 96])
@@ -67,18 +69,17 @@ def get_model():
 
     W_conv8 = weight_variable([1, 1, 4096, 3])
     b_conv8 = bias_variable([3])
-    h_conv8 = tf.nn.softmax(tf.nn.conv2d(h_conv7, W_conv8, [1, 1, 1, 1], padding='VALID') + b_conv8)
+    # h_conv8 = tf.nn.softmax(tf.nn.conv2d(h_conv7, W_conv8, [1, 1, 1, 1], padding='VALID') + b_conv8)
+    h_conv8 = tf.nn.conv2d(h_conv7, W_conv8, [1, 1, 1, 1], padding='VALID') + b_conv8
 
-    return h_conv8, x, y_
-
-
-def last_layer_average(last_layer):
-    # avg_pool = tf.nn.avg_pool(last_layer, [shape[0], shape[1], shape[2], 1], [1, 1, 1, 1], padding='VALID')
-    # avg_pool = tf.nn.avg_pool(last_layer, shape, [1, 1, 1, 1], padding='VALID')
-    avg_pool = tf.reduce_mean(last_layer, axis=1)
+    avg_pool = tf.reduce_mean(h_conv8, axis=1)
     avg_pool = tf.reduce_mean(avg_pool, axis=1)
-    # avg_pool = tf.reduce_mean(tf.reduce_mean(last_layer, axis=0), axis=0)
-    return avg_pool
+
+    # compute loss
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=avg_pool))
+    train_step = tf.train.GradientDescentOptimizer(.3).minimize(cross_entropy)
+
+    return train_step, x, y_
 
 
 if __name__ == '__main__':
@@ -88,19 +89,10 @@ if __name__ == '__main__':
     train_paths, valid_paths, test_paths = init_paths(PROCESSED_DATA_PATH)
     X_train, y_train = load_images(train_paths, small_dataset=True)
     with tf.Session() as sess:
-        last_layer_op, x, y = get_model()
+        model_op, x, y_ = get_model()
         tf.global_variables_initializer().run()
         for i in range(NUM_EPOCHS):
-            X_train_batch_op, y_train_batch = next_batch(20, X_train, y_train)
-            images = sess.run(X_train_batch_op)
-            probs_op = conv_images = []
-            probs = []
-            for image in images:
-                probs_op.append(last_layer_average(sess.run(last_layer_op, feed_dict={x: [image]})))
-            for prob_dist in probs_op:
-                probs.append(sess.run(prob_dist))
-
-            # result = sess.run(last_layer, feed_dict={x: images})
-            # results = sess.run(last_layer_average(result, result.shape))
-            for prob in probs:
-                print(prob[0])
+            X_train_batch_op, y_train_batch = next_batch(BATCH_SIZE, X_train, y_train)
+            X_train_batch = sess.run(X_train_batch_op)
+            loss = model_op.run(feed_dict={x: X_train_batch, y_: y_train_batch})
+            print(loss)
