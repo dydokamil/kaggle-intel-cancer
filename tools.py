@@ -140,13 +140,15 @@ def distort_image(img):
     return img
 
 
-def next_batch(batch_size, images, labels):
-    indices = random.sample(range(len(images)), batch_size)
-    raw_images = images[indices]
+def next_batch(images, labels, random_shuffle=False, batch_size=None):
+    if random_shuffle:
+        indices = random.sample(range(len(images)), batch_size)
+        raw_images = images[indices]
+        labels = labels[indices]
+    else:
+        raw_images = images
     distorted_images = [distort_image(image) for image in raw_images]
-    # if ravel:
-    #     distorted_images = tf.reshape(distorted_images, shape=(batch_size, -1))
-    return distorted_images, labels[indices]
+    return distorted_images, labels
 
 
 def resize_all(queue, output_path, labels=True):
