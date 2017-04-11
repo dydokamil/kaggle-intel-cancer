@@ -86,21 +86,24 @@ if __name__ == '__main__':
     X_train, y_train = load_images(train_paths)
     X_valid, y_valid = load_images(valid_paths)
 
-    losses = []
-
     with tf.Session() as sess:
         tf.global_variables_initializer().run()
-        X_valid_batch_op, y_valid_batch = next_batch(X_valid, y_valid, random_shuffle=False)
-        X_valid_batch = sess.run(X_valid_batch_op)
+        X_valid_batch_op, y_valid_batch = next_batch(X_valid, y_valid, distort=False)
+        # X_valid_batch = sess.run(X_valid_batch_op)
         for i in range(NUM_EPOCHS):
-            X_train_batch_op, y_train_batch = next_batch(X_train, y_train, random_shuffle=True, batch_size=BATCH_SIZE)
+            X_train_batch_op, y_train_batch = next_batch(X_train,
+                                                         y_train,
+                                                         distort=True,
+                                                         random_shuffle=True,
+                                                         batch_size=BATCH_SIZE)
             X_train_batch = sess.run(X_train_batch_op)
+            # print(X_train_batch)
             _, loss_computed = sess.run([train_step, loss], feed_dict={x: X_train_batch,
                                                                        y_: y_train_batch})
             if len(losses) % LOSS_LOG_AFTER == 0:
                 loss_sum = 0
-                for example, label in zip(X_valid_batch, y_valid_batch):
+                for example, label in zip(X_valid_batch_op, y_valid_batch):
                     loss_computed = sess.run(loss, feed_dict={x: [example],
                                                               y_: [label]})
                     loss_sum += loss_computed
-                print(f"Loss: {loss_sum / len(X_valid_batch)}")
+                print(f"Loss: {loss_sum / len(X_valid_batch_op)}")

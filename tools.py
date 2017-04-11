@@ -125,30 +125,32 @@ def rotate_image(img, angle):
     return img.rotate(random.randint(0, angle))
 
 
+def normalize(img):
+    return tf.divide(img, 255.)
+
+
 def distort_image(img):
-    img = tf.image.flip_left_right(img)
     img = tf.image.random_brightness(img, .1)
     img = tf.image.random_contrast(img, .9, 1.)
     img = tf.image.random_hue(img, .01)
     img = tf.image.random_saturation(img, .9, 1.)
     img = tf.image.random_flip_up_down(img)
     img = tf.image.random_flip_left_right(img)
-    # img = tf.image.rot90(img, random.randint(0, 3))
-    img = tf.divide(img, 255.)
-    # if ravel:
-    #     img = tf.reshape(img, shape=[-1])
     return img
 
 
-def next_batch(images, labels, random_shuffle=False, batch_size=None):
+def next_batch(images, labels, distort=True, random_shuffle=False, batch_size=None):
     if random_shuffle:
         indices = random.sample(range(len(images)), batch_size)
         raw_images = images[indices]
         labels = labels[indices]
     else:
         raw_images = images
-    distorted_images = [distort_image(image) for image in raw_images]
-    return distorted_images, labels
+    processed_images = raw_images
+    if distort:
+        processed_images = [distort_image(image) for image in processed_images]
+    processed_images = [normalize(image) for image in processed_images]
+    return processed_images, labels
 
 
 def resize_all(queue, output_path, labels=True):
