@@ -93,7 +93,7 @@ def resize_img(img):
     return img
 
 
-def load_images(paths, test_dataset=False, small_dataset=False):
+def load_images(paths, test_dataset=False):
     i = 0
     images, labels = [], []
     for path in paths:
@@ -112,8 +112,6 @@ def load_images(paths, test_dataset=False, small_dataset=False):
             i = i + 1
         except Exception as e:
             print(e)
-        if i == 500 and small_dataset:
-            break
     if test_dataset:
         return images
     else:
@@ -146,7 +144,32 @@ def next_batch(images, labels, distort=True, random_shuffle=False, batch_size=No
         labels = labels[indices]
     else:
         raw_images = images
-    processed_images = raw_images
+
+    if batch_size is None:
+        batch_size = len(raw_images)
+
+    # ensure squareness
+    max_shape0 = 0
+    max_shape1 = 0
+    for image in raw_images:
+        if image.shape[0] > max_shape0:
+            max_shape0 = image.shape[0]
+        if image.shape[1] > max_shape1:
+            max_shape1 = image.shape[1]
+
+    images_framed = []
+    for image in raw_images:
+        new_img = image
+        shape0_diff = max_shape0 - image.shape[0]
+        shape1_diff = max_shape1 - image.shape[1]
+        if shape0_diff > 0:
+            new_img = np.vstack((new_img, np.zeros(shape=(shape0_diff, image.shape[1], 3))))
+        if shape1_diff > 0:
+            new_img = np.hstack((new_img, np.zeros(shape=(image.shape[0], shape1_diff, 3))))
+        images_framed.append(new_img)
+
+    images_framed = np.reshape(images_framed, (batch_size, max_shape0, max_shape1, 3))
+    processed_images = images_framed
     if distort:
         processed_images = [distort_image(image) for image in processed_images]
     processed_images = [normalize(image) for image in processed_images]

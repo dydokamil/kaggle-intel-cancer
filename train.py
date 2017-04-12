@@ -5,7 +5,7 @@ from tools import load_images, init_paths, RAW_DATA_PATH, PROCESSED_DATA_PATH, n
 
 RESIZED = True  # switch to False if images are not resized
 NUM_EPOCHS = 50000
-BATCH_SIZE = 1
+BATCH_SIZE = 20
 LOSS_LOG_AFTER = 20
 
 
@@ -100,10 +100,12 @@ if __name__ == '__main__':
             # print(X_train_batch)
             _, loss_computed = sess.run([train_step, loss], feed_dict={x: X_train_batch,
                                                                        y_: y_train_batch})
-            if len(losses) % LOSS_LOG_AFTER == 0:
-                loss_sum = 0
-                for example, label in zip(X_valid_batch_op, y_valid_batch):
-                    loss_computed = sess.run(loss, feed_dict={x: [example],
-                                                              y_: [label]})
-                    loss_sum += loss_computed
-                print(f"Loss: {loss_sum / len(X_valid_batch_op)}")
+            print(np.average(loss_computed))
+            # del X_train_batch_op, y_train_batch, X_train_batch, loss_computed, _
+            # if i % LOSS_LOG_AFTER == 0:
+            #     loss_sum = 0
+            #     for example, label in zip(X_valid_batch_op, y_valid_batch):
+            #         loss_computed = sess.run(loss, feed_dict={x: [example],
+            #                                                   y_: [label]})
+            #         loss_sum += loss_computed
+            #     print(f"Loss: {loss_sum / len(X_valid_batch_op)}")
