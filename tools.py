@@ -1,10 +1,11 @@
-import threading
 import os
-from PIL import Image
-import numpy as np
 import random
-import tensorflow as tf
+import threading
+
 import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from PIL import Image
 
 RAW_DATA_PATH = r"/media/hdd/training_data/intel-cancer/Screening"
 SHORTER_AXIS = 227
@@ -151,28 +152,39 @@ def next_batch(images, labels, distort=True, random_shuffle=False, batch_size=No
     # ensure squareness
     max_shape0 = 0
     max_shape1 = 0
+
+    rotated_images = []
     for image in raw_images:
+        if image.shape[1] > image.shape[0]:
+            rotated_images.append(np.rot90(image))
+        else:
+            rotated_images.append(image)
+
+    for image in rotated_images:
         if image.shape[0] > max_shape0:
             max_shape0 = image.shape[0]
         if image.shape[1] > max_shape1:
             max_shape1 = image.shape[1]
 
     images_framed = []
-    for image in raw_images:
+    for image in rotated_images:
         new_img = image
-        shape0_diff = max_shape0 - image.shape[0]
-        shape1_diff = max_shape1 - image.shape[1]
+        shape0_diff = max_shape0 - new_img.shape[0]
+        shape1_diff = max_shape1 - new_img.shape[1]
         if shape0_diff > 0:
-            new_img = np.vstack((new_img, np.zeros(shape=(shape0_diff, image.shape[1], 3))))
+            new_img = np.vstack((new_img, np.zeros(shape=(shape0_diff, new_img.shape[1], 3))))
         if shape1_diff > 0:
-            new_img = np.hstack((new_img, np.zeros(shape=(image.shape[0], shape1_diff, 3))))
+            try:
+                new_img = np.hstack((new_img, np.zeros(shape=(new_img.shape[0], shape1_diff, 3))))
+            except ValueError:
+                pass
         images_framed.append(new_img)
 
     images_framed = np.reshape(images_framed, (batch_size, max_shape0, max_shape1, 3))
     processed_images = images_framed
     if distort:
         processed_images = [distort_image(image) for image in processed_images]
-    processed_images = [normalize(image) for image in processed_images]
+    processed_images = np.asarray([normalize(image) for image in processed_images])
     return processed_images, labels
 
 

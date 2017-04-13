@@ -76,15 +76,16 @@ avg_pool = tf.reduce_mean(h_conv8, axis=1)
 avg_pool2 = tf.reduce_mean(avg_pool, axis=1)
 loss = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=avg_pool2)
 # loss = tf.subtract(avg_pool2, y_)
-train_step = tf.train.AdamOptimizer(1e-6).minimize(loss)
+train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
 if __name__ == '__main__':
     if not RESIZED:
         train_paths, valid_paths, test_paths = init_paths(RAW_DATA_PATH)
         resize_all(test_paths, PROCESSED_DATA_PATH, labels=False)
     train_paths, valid_paths, test_paths = init_paths(PROCESSED_DATA_PATH)
-    X_train, y_train = load_images(train_paths)
     X_valid, y_valid = load_images(valid_paths)
+    X_train, y_train = load_images(train_paths)
+    all_losses = []
 
     with tf.Session() as sess:
         tf.global_variables_initializer().run()
@@ -93,14 +94,18 @@ if __name__ == '__main__':
         for i in range(NUM_EPOCHS):
             X_train_batch_op, y_train_batch = next_batch(X_train,
                                                          y_train,
-                                                         distort=True,
+                                                         distort=False,
                                                          random_shuffle=True,
                                                          batch_size=BATCH_SIZE)
-            X_train_batch = sess.run(X_train_batch_op)
+            # X_train_batch = sess.run(X_train_batch_op)
             # print(X_train_batch)
-            _, loss_computed = sess.run([train_step, loss], feed_dict={x: X_train_batch,
+            _, loss_computed = sess.run([train_step, loss], feed_dict={x: X_train_batch_op,
                                                                        y_: y_train_batch})
-            print(np.average(loss_computed))
+            print(f"Current loss {np.average(loss_computed)}")
+            if len(all_losses) > 10:
+                all_losses.pop(0)
+            all_losses.extend(loss_computed)
+            print(f'Last 10 losses: {np.average(all_losses)}')
             # del X_train_batch_op, y_train_batch, X_train_batch, loss_computed, _
             # if i % LOSS_LOG_AFTER == 0:
             #     loss_sum = 0
