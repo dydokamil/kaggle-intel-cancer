@@ -35,52 +35,6 @@ def display_img(img):
     plt.show()
 
 
-class ImageQueue:
-    '''This class implements a threaded image queue.'''
-
-    def __init__(self, paths, min_queue_examples=5, normalize=True):
-        self.__paths = paths
-        self.__normalize = normalize
-        self.__queue = []
-        self.__min_queue_examples = min_queue_examples
-        self.__enqueue_thread = threading.Thread(target=self.__auto_enqueue)
-        self.__enqueue_thread.start()
-        print("Filling up the queue...")
-
-    def __auto_enqueue(self):
-        while len(self.__queue) < self.__min_queue_examples:
-            self.__enqueue_example()
-
-    def __input_producer(self):
-        path = random.sample(self.__paths, 1)[0]
-        img = plt.imread(path)
-        self.__queue.append([img, path.split('/')[-2]])
-
-    def __enqueue_example(self):
-        self.__input_producer()
-
-    def dequeue_example(self, size=1, consume=True):
-        if size > self.__min_queue_examples:
-            raise Exception("Requested amount of examples is greater than min_queue_example.")
-
-        if self.__enqueue_thread:
-            self.__enqueue_thread.join()
-
-        if size > len(self.__queue):
-            raise Exception("Requested amount of examples is greater than the size of the queue.")
-
-        if consume:
-            # TODO if queue_size == size then return queue
-            batch = []
-            for i in range(size):
-                batch.append(self.__queue.pop())
-            self.__enqueue_thread = threading.Thread(target=self.__auto_enqueue)
-            self.__enqueue_thread.start()
-            return batch
-        else:
-            return self.__queue[0:size]
-
-
 def resize_img(img):
     img = Image.fromarray(img)
     multiplier = 1
@@ -117,11 +71,6 @@ def load_images(paths, test_dataset=False):
         return images
     else:
         return np.asarray(images), np.asarray(labels)
-
-
-def rotate_image(img, angle):
-    img = Image.fromarray(img)
-    return img.rotate(random.randint(0, angle))
 
 
 def normalize(img):
