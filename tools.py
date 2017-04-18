@@ -53,9 +53,9 @@ def load_images(paths, test_dataset=False):
     images, labels = [], []
     for path in paths:
         try:
-            img = plt.imread(path)
-            img = img.astype(np.float32)
-            images.append(img)
+            img = Image.open(path)
+            # img = img.astype(np.float32)
+            images.append(np.array(img))
             if not test_dataset:
                 string_label = path.split('/')[-2]
                 if string_label == "Type_1":
@@ -68,7 +68,7 @@ def load_images(paths, test_dataset=False):
         except Exception as e:
             print(e)
     if test_dataset:
-        return images
+        return np.asarray(images)
     else:
         return np.asarray(images), np.asarray(labels)
 
@@ -98,42 +98,11 @@ def next_batch(images, labels, distort=True, random_shuffle=False, batch_size=No
     if batch_size is None:
         batch_size = len(raw_images)
 
-    # ensure squareness
-    max_shape0 = 0
-    max_shape1 = 0
-
-    rotated_images = []
+    processed_images = []
     for image in raw_images:
-        if image.shape[1] > image.shape[0]:
-            rotated_images.append(np.rot90(image))
-        else:
-            rotated_images.append(image)
+        processed_images.append(normalize(np.array(Image.fromarray(image).resize([227, 227]))))
 
-    for image in rotated_images:
-        if image.shape[0] > max_shape0:
-            max_shape0 = image.shape[0]
-        if image.shape[1] > max_shape1:
-            max_shape1 = image.shape[1]
-
-    images_framed = []
-    for image in rotated_images:
-        new_img = image
-        shape0_diff = max_shape0 - new_img.shape[0]
-        shape1_diff = max_shape1 - new_img.shape[1]
-        if shape0_diff > 0:
-            new_img = np.vstack((new_img, np.zeros(shape=(shape0_diff, new_img.shape[1], 3))))
-        if shape1_diff > 0:
-            try:
-                new_img = np.hstack((new_img, np.zeros(shape=(new_img.shape[0], shape1_diff, 3))))
-            except ValueError:
-                pass
-        images_framed.append(new_img)
-
-    images_framed = np.reshape(images_framed, (batch_size, max_shape0, max_shape1, 3))
-    processed_images = images_framed
-    if distort:
-        processed_images = [distort_image(image) for image in processed_images]
-    processed_images = np.asarray([normalize(image) for image in processed_images])
+    # ensure squareness
     return processed_images, labels
 
 
