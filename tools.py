@@ -100,7 +100,7 @@ def next_batch(images, labels, distort=True, random_shuffle=False, batch_size=No
 
     processed_images = []
     for image in raw_images:
-        processed_images.append(normalize(np.array(Image.fromarray(image).resize([227, 227]))))
+        processed_images.append(normalize(np.array(Image.fromarray(image).resize([224, 224]))))
 
     # ensure squareness
     return processed_images, labels
