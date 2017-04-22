@@ -1,18 +1,17 @@
 import numpy as np
 import tensorflow as tf
-import os
 
 from tools import load_images, init_paths, RAW_DATA_PATH, PROCESSED_DATA_PATH, next_batch, resize_all
 
 RESIZED = True  # switch to False if images are not resized
 NUM_EPOCHS = 50000
-BATCH_SIZE = 20
+BATCH_SIZE = 5
 LOSS_LOG_AFTER = 15
 MODEL_SAVE_PATH = '/home/kamil/deep-learning/saved-models/intel-cancer'
 
 
 def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev=.1)
+    initial = tf.truncated_normal(shape, stddev=.5)
     return tf.Variable(initial)
 
 
@@ -60,30 +59,26 @@ h_pool5 = tf.nn.max_pool(h_conv5, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME')
 
 lrn3 = tf.nn.local_response_normalization(h_pool5)
 
-# sixth convolutional layer
+# ------------------------------fully connected------------------------------ #
 keep_prob = tf.placeholder(tf.float32)
-W_conv6 = weight_variable([1, 1, 256, 4096])
-b_conv6 = bias_variable([4096])
-h_conv6 = tf.nn.dropout(tf.nn.relu(tf.nn.conv2d(lrn3, W_conv6, [1, 1, 1, 1], padding='VALID') + b_conv6),
-                        keep_prob=keep_prob)
-lrn3 = tf.nn.local_response_normalization(h_conv6)
+lrn3_flat = tf.reshape(lrn3, [-1, 7 * 7 * 256])
 
-W_conv7 = weight_variable([1, 1, 4096, 4096])
-b_conv7 = bias_variable([4096])
-h_conv7 = tf.nn.dropout(tf.nn.relu(tf.nn.conv2d(lrn3, W_conv7, [1, 1, 1, 1], padding='VALID') + b_conv7),
-                        keep_prob=keep_prob)
-lrn4 = tf.nn.local_response_normalization(h_conv7)
+W_fc1 = weight_variable([7 * 7 * 256, 4096])
+b_fc1 = bias_variable([4096])
+h_fc1 = tf.nn.dropout(tf.nn.relu(tf.matmul(lrn3_flat, W_fc1) + b_fc1), keep_prob)
 
-W_conv8 = weight_variable([1, 1, 4096, 3])
-b_conv8 = bias_variable([3])
-# h_conv8 = tf.nn.softmax(tf.nn.conv2d(h_conv7, W_conv8, [1, 1, 1, 1], padding='VALID') + b_conv8)
-h_conv8 = tf.nn.conv2d(lrn4, W_conv8, [1, 1, 1, 1], padding='VALID') + b_conv8
+W_fc2 = weight_variable([4096, 4096])
+b_fc2 = bias_variable([4096])
+h_fc2 = tf.nn.dropout(tf.nn.relu(tf.matmul(h_fc1, W_fc2) + b_fc2), keep_prob)
 
-avg_pool = tf.reduce_mean(h_conv8, axis=1)
-avg_pool2 = tf.reduce_mean(avg_pool, axis=1)
-loss = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=avg_pool2)
-# loss = tf.subtract(avg_pool2, y_)
-train_step = tf.train.AdamOptimizer().minimize(loss)
+W_fc3 = weight_variable([4096, 3])
+b_fc3 = bias_variable([3])
+y_conv = tf.matmul(h_fc2, W_fc3) + b_fc3
+
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
+train_step = tf.train.AdamOptimizer().minimize(cross_entropy)
+correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 if __name__ == '__main__':
     previous_loss = 500.
@@ -103,15 +98,15 @@ if __name__ == '__main__':
         for i in range(NUM_EPOCHS):
             # check accuracy
             if i % LOSS_LOG_AFTER == 0:
-                loss_valid, predictions = sess.run([loss, avg_pool2], feed_dict={x: X_valid_batch_op,
-                                                                                 y_: y_valid_batch,
-                                                                                 keep_prob: 1.})
-                accuracy = tf.equal(tf.argmax(predictions, 1), tf.argmax(y_valid_batch, 1))
-                loss_valid = np.average(loss_valid)
-                print(f"Validation loss: {loss_valid}, accuracy: {sess.run(accuracy)}")
-                if loss_valid < previous_loss:
-                    # saver.save(sess, os.path.join(MODEL_SAVE_PATH, 'my-model'))
-                    previous_loss = loss_valid
+                # loss_valid, predictions = sess.run([cross_entropy, correct_prediction], feed_dict={x: X_valid_batch_op,
+                #                                                                                    y_: y_valid_batch,
+                #                                                                                    keep_prob: 1.})
+                train_accuracy = accuracy.eval(feed_dict={x: X_valid_batch_op, y_: y_valid_batch, keep_prob: 1.})
+                # print(f"Validation loss: {loss_valid}, accuracy: {train_accuracy}")
+                print(f"Train accuracy: {train_accuracy}")
+                # if loss_valid < previous_loss:
+                #     saver.save(sess, os.path.join(MODEL_SAVE_PATH, 'my-model'))
+                    # previous_loss = loss_valid
             # train
             X_train_batch_op, y_train_batch = next_batch(X_train,
                                                          y_train,
